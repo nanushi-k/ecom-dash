@@ -44,12 +44,14 @@ DECLARE
   ];
   first_names text[] := ARRAY['James','Mary','John','Patricia','Robert','Jennifer','Michael','Linda','David','Elizabeth','William','Barbara','Richard','Susan','Joseph','Jessica','Thomas','Sarah','Charles','Karen','Emma','Olivia','Liam','Noah','Ava','Sophia','Mason','Logan','Lucas','Mia'];
   last_names text[] := ARRAY['Smith','Johnson','Williams','Brown','Jones','Garcia','Miller','Davis','Rodriguez','Martinez','Hernandez','Lopez','Gonzalez','Wilson','Anderson','Thomas','Taylor','Moore','Jackson','Martin','Lee','Perez','Thompson','White','Harris','Sanchez','Clark','Ramirez','Lewis','Robinson'];
-  cust_ids uuid[];
-  prod_ids uuid[];
-  prod_prices numeric[];
+  cust_ids uuid[] := '{}';
+  prod_ids uuid[] := '{}';
+  prod_prices numeric[] := '{}';
   existing_order_count integer;
 BEGIN
-  -- Clean up existing data for this user (order_items cascade from orders)
+  -- Clean up existing data for this user
+  -- Delete order_items first (references both orders and products)
+  DELETE FROM public.order_items WHERE order_id IN (SELECT id FROM public.orders WHERE user_id = uid);
   DELETE FROM public.orders WHERE user_id = uid;
   DELETE FROM public.customers WHERE user_id = uid;
   DELETE FROM public.products WHERE user_id = uid;
