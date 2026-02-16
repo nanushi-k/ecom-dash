@@ -21,12 +21,19 @@ export function useTheme() {
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem(STORAGE_KEY, newTheme);
-    document.documentElement.classList.toggle("dark", newTheme === "dark");
+    if (newTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
   }, []);
 
   const toggleTheme = useCallback(() => {
-    setTheme(theme === "light" ? "dark" : "light");
-  }, [theme, setTheme]);
+    const current = document.documentElement.classList.contains("dark")
+      ? "dark"
+      : "light";
+    setTheme(current === "dark" ? "light" : "dark");
+  }, [setTheme]);
 
   return { theme, setTheme, toggleTheme, mounted };
 }
