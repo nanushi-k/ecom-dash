@@ -1,22 +1,23 @@
 -- ============================================================
 -- ecom-dash: Seed data
 -- ============================================================
--- This script is designed to be run AFTER you sign up as a user.
--- Replace YOUR_USER_ID_HERE with your actual auth.users id from Supabase.
+-- Creates a reusable function, then calls it for a user.
 --
--- To find your user ID:
---   1. Sign up in the app
---   2. Go to Supabase Dashboard > Authentication > Users
---   3. Copy your user's UUID
+-- Usage:
+--   1. Run this entire file once to create the function
+--   2. To seed data for any user, run:
+--      SELECT seed_demo_data('YOUR_USER_ID_HERE');
 --
--- Then run this SQL in the Supabase SQL Editor with your ID substituted.
+-- Example:
+--   SELECT seed_demo_data('d3867763-ce2e-4bb6-8648-24c6a6aa943a');
+--
+-- The function is idempotent — it deletes existing data for
+-- the user before inserting, so it's safe to run multiple times.
 -- ============================================================
 
--- Set the user ID variable
--- REPLACE THIS with your actual user ID from auth.users
-DO $$
+CREATE OR REPLACE FUNCTION seed_demo_data(uid uuid)
+RETURNS void AS $$
 DECLARE
-  uid uuid := 'YOUR_USER_ID_HERE';
   cat text;
   prod_id uuid;
   cust_id uuid;
@@ -46,7 +47,16 @@ DECLARE
   cust_ids uuid[];
   prod_ids uuid[];
   prod_prices numeric[];
+  existing_order_count integer;
 BEGIN
+  -- Clean up existing data for this user (order_items cascade from orders)
+  DELETE FROM public.orders WHERE user_id = uid;
+  DELETE FROM public.customers WHERE user_id = uid;
+  DELETE FROM public.products WHERE user_id = uid;
+
+  -- Get existing order count for unique order numbers
+  SELECT count(*) INTO existing_order_count FROM public.orders;
+
   -- Insert products (6 per category = 60 products)
   FOR i IN 1..10 LOOP
     cat := categories[i];
@@ -77,7 +87,7 @@ BEGIN
       cust_id,
       uid,
       first_names[floor(random() * 30 + 1)::integer] || ' ' || last_names[floor(random() * 30 + 1)::integer],
-      'customer' || i || '@example.com',
+      'customer' || i || '_' || left(uid::text, 8) || '@example.com',
       floor(random() * 9999 + 1)::text || ' ' ||
         (ARRAY['Oak St','Elm Ave','Pine Rd','Maple Dr','Cedar Ln','Birch Way','Walnut Blvd','Spruce Ct'])[floor(random() * 8 + 1)::integer] || ', ' ||
         (ARRAY['New York','Los Angeles','Chicago','Houston','Phoenix','Philadelphia','San Antonio','San Diego'])[floor(random() * 8 + 1)::integer],
@@ -89,7 +99,7 @@ BEGIN
   -- Insert 500 orders spread across last 12 months
   FOR i IN 1..500 LOOP
     ord_id := gen_random_uuid();
-    ord_num := 'ORD-' || lpad(i::text, 5, '0');
+    ord_num := 'ORD-' || left(uid::text, 4) || '-' || lpad(i::text, 5, '0');
     ord_status := statuses[floor(random() * 10 + 1)::integer];
     rand_date := now() - (random() * 365)::integer * interval '1 day' - (random() * 24)::integer * interval '1 hour';
     ord_total := 0;
@@ -101,7 +111,7 @@ BEGIN
       cust_ids[floor(random() * 100 + 1)::integer],
       ord_num,
       ord_status,
-      0, -- will update after items
+      0,
       rand_date
     );
 
@@ -122,4 +132,13 @@ BEGIN
     -- Update order total
     UPDATE public.orders SET total = ord_total WHERE id = ord_id;
   END LOOP;
-END $$;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================
+-- Seed data for your user(s) below:
+-- ============================================================
+SELECT seed_demo_data('d3867763-ce2e-4bb6-8648-24c6a6aa943a');
+
+-- To seed for another user, just add another line:
+-- SELECT seed_demo_data('another-user-uuid-here');
